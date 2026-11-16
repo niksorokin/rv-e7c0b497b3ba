@@ -2916,6 +2916,7 @@ function shell(){
   $('#wk').innerHTML = WEEKS.map((w,i)=>`<button data-wi="${i}"><span class="wl-long">${w.label}</span></button>`).join('');
   document.addEventListener('click', e=>{
     const cs=e.target.closest('[data-case]'); if(cs){ location.hash='#case/'+cs.dataset.case; return; }
+    const department=e.target.closest('[data-href="#departments"],[data-href^="#department/"],a[href="#departments"],a[href^="#department/"]'); if(department && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey){ e.preventDefault(); openDepartment(department.dataset.href||department.getAttribute('href')); return; }
     const hr=e.target.closest('[data-href]'); if(hr){ closeSug(); location.hash=hr.dataset.href; return; }
     const dc=e.target.closest('[data-doc]'); if(dc){ CX.openDoc(dc.dataset.doc); return; }
     const tm=e.target.closest('[data-tabmaps]'); if(tm){ S.tab='maps'; closeSug(); go('plan'); return; }
@@ -2931,6 +2932,12 @@ function shell(){
     if(!e.target.closest('.picker')) closePop();
   });
 }
+function openDepartment(hash){
+  closeSug(); closePop();
+  if(location.hash!==hash) history.pushState(null,'',location.pathname+location.search+hash);
+  fromHash(); render();
+  const sb=$('#sbody'); if(sb){ const behavior=sb.style.scrollBehavior; sb.style.scrollBehavior='auto'; sb.scrollTop=0; sb.style.scrollBehavior=behavior; }
+}
 function go(v){ if(v==='cases') S.ch='cases'; S.view=v; if(v!=='plan') closeSug(); render(); const sb=$('#sbody'); if(sb) sb.scrollTop=0; syncHash(); }
 function syncHash(){ if(S.view==='cases'){ const hc='#'+(S.ch||'cases'); if(location.hash!==hc) history.replaceState(null,'',location.pathname+location.search+hc); return; }
   const h = S.view==='person'?`#person/${S.person}`:S.view==='team'?`#team/${S.team}`:S.view==='plan'?(S.tab==='maps'?`#process/${S.proc}`:'#plan'):'#'+S.view;
@@ -2944,6 +2951,10 @@ function fromHash(){ const raw=decodeURIComponent(location.hash.slice(1));
 
 function render(){
   $$('.nav[data-v], #mnav [data-v]').forEach(b=>b.classList.toggle('on', b.dataset.v===(S.view==='cases'&&CX.isHarbor()?'plan':S.view)));
+  const departmentPage=S.view==='cases' && /^(departments|department\/)/.test(S.ch||'');
+  const departmentName={claims:'Claims',finance:'Finance',operations:'Operations',underwriting:'Underwriting',leadership:'Leadership'}[(S.ch||'').split('/')[1]]||'';
+  $$('.nav[data-v="cases"], #mnav [data-v="cases"]').forEach(b=>b.classList.toggle('on', S.view==='cases'&&!departmentPage&&!CX.isHarbor()));
+  $$('.nav[data-href^="#depart"], #mnav [data-href="#departments"]').forEach(b=>{ const selected=departmentPage&&(b.dataset.href==='#departments'||b.dataset.href==='#'+S.ch); b.classList.toggle('on',selected); if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current'); });
   $$('.nav[data-team]').forEach(b=>b.classList.toggle('on', S.view==='team' && b.dataset.team===S.team));
   $$('.nav[data-case]').forEach(b=>b.classList.toggle('on', S.view==='cases' && (S.ch||'').split('/')[1]===b.dataset.case));
   $$('#wk [data-wi]').forEach(b=>b.classList.toggle('on', +b.dataset.wi===S.wi));
@@ -2952,7 +2963,7 @@ function render(){
   $('#anon').classList.toggle('on', S.anon);
   $('#anon b').textContent = S.anon ? 'Anonymous' : 'Named';
   $$('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+S.view));
-  const crumbs = { cases:S.view==='cases'?CX.crumbs():['Process deep-dives',''], person:['Personal reports', S.view==='person'?nm(PERSON[S.person]):''], team:['Team reports', TEAM[S.team].name], company:['Company report',''], plan:['Processes & automation', S.tab==='maps'?PROC[S.proc].n:'Automation plan'], ask:['Ask Silow',''] }[S.view];
+  const crumbs = { cases:S.view==='cases'?(departmentPage?['Departments',departmentName]:CX.crumbs()):['Process deep-dives',''], person:['Personal reports', S.view==='person'?nm(PERSON[S.person]):''], team:['Team reports', TEAM[S.team].name], company:['Company report',''], plan:['Processes & automation', S.tab==='maps'?PROC[S.proc].n:'Automation plan'], ask:['Ask Silow',''] }[S.view];
   $('#crumb').innerHTML = `<span class="hide-m">Harbor Mutual</span><span class="hide-m">/</span>${crumbs[1]?`<span class="hide-m">${crumbs[0]}</span><span class="hide-m">/</span><b>${esc(crumbs[1])}</b>`:`<b>${crumbs[0]}</b>`}`;
   ({cases:()=>CX.render(), person:rPerson, team:rTeam, company:rCompany, plan:rPlan, ask:rAsk})[S.view]();
   if(S.sel && S.view==='plan') openSug(S.sel, true);
